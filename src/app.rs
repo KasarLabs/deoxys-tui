@@ -8,8 +8,8 @@ pub struct App {
 }
 
 pub struct Metrics {
-    pub block_number: u64,
-    pub syncing: SyncStatusType,
+    pub block_number: Result<u64, String>,
+    pub syncing: Result<SyncStatusType, String>
 }
 
 impl App {
@@ -19,8 +19,8 @@ impl App {
             should_quit: false,
             radar: Radar::new(rpc_endpoint),
             data: Metrics {
-                block_number: 0,
-                syncing: SyncStatusType::NotSyncing,
+                block_number: Ok(0),
+                syncing: Ok(SyncStatusType::NotSyncing),
             }
         }
     }
@@ -41,10 +41,10 @@ impl Radar {
             rpc_client: rpc_provider,
         }
     }
-    async fn get_block_number(&self) -> u64 {
-        self.rpc_client.block_number().await.unwrap()
+    async fn get_block_number(&self) -> Result<u64, String> {
+        self.rpc_client.block_number().await.map_err(|err| format!("Error: {:?}", err))
     }
-    async fn get_syncing(&self) -> SyncStatusType {
-        self.rpc_client.syncing().await.unwrap()
+    async fn get_syncing(&self) -> Result<SyncStatusType, String> {
+        self.rpc_client.syncing().await.map_err(|err| format!("Error: {:?}", err))
     }
 }
