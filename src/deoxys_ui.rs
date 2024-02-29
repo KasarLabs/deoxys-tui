@@ -1,7 +1,11 @@
-use crossterm::event::{self, Event::Key, KeyCode::Char};
-use ratatui::prelude::{CrosstermBackend, Terminal};
 use anyhow::{Ok, Result};
-use crate::{app::App, ui};
+use crossterm::event::Event::Key;
+use crossterm::event::KeyCode::Char;
+use crossterm::event::{self};
+use ratatui::prelude::{CrosstermBackend, Terminal};
+
+use crate::app::App;
+use crate::ui;
 
 pub async fn run(rpc_endpoint: &str) -> Result<()> {
     ui::startup()?;
@@ -24,16 +28,15 @@ pub async fn run(rpc_endpoint: &str) -> Result<()> {
 
 async fn update(app: &mut App) -> Result<()> {
     app.update_metrics().await;
-    if event::poll(std::time::Duration::from_millis(250))? {
-      if let Key(key) = event::read()? {
-        if key.kind == event::KeyEventKind::Press {
-          match key.code {
-            Char('q') => app.should_quit = true,
-            _ => {},
-          }
+    if event::poll(std::time::Duration::from_millis(50))? {
+        if let Key(key) = event::read()? {
+            if key.kind == event::KeyEventKind::Press {
+                match key.code {
+                    Char('q') => app.should_quit = true,
+                    _ => {}
+                }
+            }
         }
-      }
     }
     Ok(())
 }
-  
