@@ -50,7 +50,7 @@ fn render_system(frame: &mut Frame, app: &App, area: Rect) {
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(area);
 
-    let cpu_area = area.inner(&Margin::new(1, 1));
+    let cpu_area = _outer_layout[0].inner(&Margin::new(1, 1));
     render_cpu(frame, app, cpu_area);
 }
 
@@ -92,9 +92,7 @@ fn render_cpu(frame: &mut Frame, app: &App, area: Rect) {
 
     let chart = Chart::new(datasets)
         .block(Block::default().title("CPU usage".cyan().bold()).borders(Borders::ALL))
-        .x_axis(
-            Axis::default().title("t").style(Style::default().fg(Color::Gray)).labels(x_labels).bounds([0., 100.]),
-        )
+        .x_axis(Axis::default().title("t").style(Style::default().fg(Color::Gray)).labels(x_labels).bounds([0., 100.]))
         .y_axis(
             Axis::default()
                 .style(Style::default().fg(Color::Gray))

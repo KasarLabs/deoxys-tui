@@ -8,11 +8,10 @@ use crate::app::App;
 use crate::ui;
 
 pub async fn run(rpc_endpoint: &str) -> Result<()> {
-    ui::startup()?;
-
     let mut t = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
-    let mut app = App::new("Deoxys Dashboard", rpc_endpoint);
+    let mut app = App::new("Deoxys Dashboard", rpc_endpoint).unwrap();
 
+    ui::startup()?;
     loop {
         update(&mut app).await?;
         t.draw(|f| {

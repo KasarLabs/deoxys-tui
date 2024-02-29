@@ -18,10 +18,10 @@ pub struct Metrics {
 }
 
 impl App {
-    pub fn new(name: &str, rpc_endpoint: &str) -> Self {
-        let mut radar = Radar::new(rpc_endpoint);
+    pub fn new(name: &str, rpc_endpoint: &str) -> Result<Self, String> {
+        let mut radar = Radar::new(rpc_endpoint)?;
         let cpu_number = radar.get_cpu_usage().len();
-        Self {
+        Ok(Self {
             name: name.to_string(),
             should_quit: false,
             radar,
@@ -31,7 +31,7 @@ impl App {
                 cpu_name: "N/A".to_string(),
                 cpu_usage: vec![vec![0.; 100]; cpu_number],
             },
-        }
+        })
     }
     pub async fn update_metrics(&mut self) {
         self.data.syncing = self.radar.get_syncing().await;
@@ -50,10 +50,11 @@ struct Radar {
 }
 
 impl Radar {
-    fn new(jsonrpc_endpoint: &str) -> Self {
-        let rpc_provider = jsonrpc::JsonRpcClient::new(HttpTransport::new(Url::parse(jsonrpc_endpoint).unwrap()));
+    fn new(jsonrpc_endpoint: &str) -> Result<Self, String> {
+        let url = Url::parse(jsonrpc_endpoint).map_err(|_| "Error: Not a Valid URL for RPC endpoint")?;
+        let rpc_provider = jsonrpc::JsonRpcClient::new(HttpTransport::new(url));
         let sys = System::new();
-        Self { rpc_client: rpc_provider, system: sys }
+        Ok(Self { rpc_client: rpc_provider, system: sys })
     }
     async fn _get_block_number(&self) -> Result<u64, String> {
         self.rpc_client.block_number().await.map_err(|err| format!("Error: {:?}", err))
