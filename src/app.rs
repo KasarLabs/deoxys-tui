@@ -1,7 +1,7 @@
 use starknet::core::types::SyncStatusType;
 use starknet::providers::jsonrpc::{self, HttpTransport};
 use starknet::providers::{Provider, Url};
-use sysinfo::{CpuRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
+use sysinfo::System;
 
 pub struct App {
     pub should_quit: bool,
@@ -50,7 +50,6 @@ impl App {
 struct Radar {
     rpc_client: jsonrpc::JsonRpcClient<HttpTransport>,
     system: System,
-    process_pid: Option<Pid>,
     process_name: String,
 }
 
@@ -59,14 +58,8 @@ impl Radar {
         let url = Url::parse(jsonrpc_endpoint).map_err(|_| "Error: Not a Valid URL for RPC endpoint")?;
         let rpc_provider = jsonrpc::JsonRpcClient::new(HttpTransport::new(url));
         let sys = System::new();
-        let pid = Radar::process_pid(process_name);
 
-        Ok(Self { rpc_client: rpc_provider, system: sys, process_pid: pid, process_name: process_name.to_string() })
-    }
-    fn process_pid(process_name: &str) -> Option<Pid> {
-        let mut sys = System::new();
-        sys.refresh_processes();
-        sys.processes().iter().find(|(_, v)| v.name() == process_name).map(|elm| *elm.0)
+        Ok(Self { rpc_client: rpc_provider, system: sys, process_name: process_name.to_string() })
     }
     async fn _get_block_number(&self) -> Result<u64, String> {
         self.rpc_client.block_number().await.map_err(|err| format!("Error: {:?}", err))
@@ -75,32 +68,17 @@ impl Radar {
         self.rpc_client.syncing().await.map_err(|err| format!("Error: {:?}", err))
     }
     fn snapshot(&mut self) {
-        if let Some(pid) = self.process_pid {
-            self.system.refresh_process_specifics(pid, ProcessRefreshKind::new().with_cpu().with_memory());
-        } else {
-            self.process_pid = Radar::process_pid(&self.process_name);
-            if self.process_pid.is_some() {
-                self.snapshot();
-            }
-        }
+        self.system.refresh_processes();
     }
     fn get_cpu_usage(&mut self) -> Option<f64> {
-        let process = match self.process_pid {
-            Some(pid) => self.system.process(pid),
-            _ => None,
-        };
-        match process {
+        match self.system.processes_by_exact_name(&self.process_name).next() {
             Some(target) => Some(target.cpu_usage() as f64),
             _ => None,
         }
     }
     fn get_memory_usage(&mut self) -> Option<u64> {
-        let process = match self.process_pid {
-            Some(pid) => self.system.process(pid),
-            _ => None,
-        };
-        match process {
-            Some(target) => Some(target.virtual_memory() as u64),
+        match self.system.processes_by_exact_name(&self.process_name).next() {
+            Some(target) => Some(target.memory()),
             _ => None,
         }
     }
