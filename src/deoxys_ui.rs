@@ -7,9 +7,9 @@ use ratatui::prelude::{CrosstermBackend, Terminal};
 use crate::app::App;
 use crate::ui;
 
-pub async fn run(rpc_endpoint: &str) -> Result<()> {
+pub async fn run(rpc_endpoint: &str, process_name: &str) -> Result<()> {
     let mut t = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
-    let mut app = App::new("Deoxys Dashboard", rpc_endpoint).unwrap();
+    let mut app = App::new(process_name, rpc_endpoint).unwrap();
 
     ui::startup()?;
     loop {

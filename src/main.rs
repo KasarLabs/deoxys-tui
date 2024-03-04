@@ -8,6 +8,6 @@ use deoxys_ui as tui;
 #[tokio::main]
 async fn main() -> Result<()> {
     // TEMPORAIRE
-    tui::run("localhost:9944").await?;
+    tui::run("http://querypointer.com:9545", "usecpu").await?;
     Ok(())
 }

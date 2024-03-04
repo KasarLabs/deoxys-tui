@@ -27,6 +27,7 @@ pub fn ui(app: &App, frame: &mut Frame) {
     render_sync(frame, app, sync_area);
     render_system(frame, app, system_area);
     render_network(frame, app, network_area);
+    render_memory(frame, app, network_area);
 }
 
 fn render_sync(frame: &mut Frame, app: &App, area: Rect) {
@@ -50,7 +51,7 @@ fn render_system(frame: &mut Frame, app: &App, area: Rect) {
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(area);
 
-    let cpu_area = _outer_layout[0].inner(&Margin::new(1, 1));
+    let cpu_area = area; //_outer_layout[0].inner(&Margin::new(1, 1));
     render_cpu(frame, app, cpu_area);
 }
 
@@ -77,18 +78,15 @@ fn render_cpu(frame: &mut Frame, app: &App, area: Rect) {
 
     let x_labels = vec![];
 
-    let series: Vec<Vec<(f64, f64)>> =
-        app.data.cpu_usage.clone().into_iter().map(|elm| smooth_serie(&elm, 7)).take(1).collect();
-    let datasets = (0..series.len())
-        .map(|index| {
-            let serie = &series[index];
-            Dataset::default()
-                .name("cpu".to_string() + &index.to_string())
-                .marker(symbols::Marker::Dot)
-                .style(Style::default().fg(Color::Cyan))
-                .data(serie)
-        })
-        .collect();
+    let serie = smooth_serie(&app.data.cpu_usage, 10);
+
+    let datasets = vec![
+        Dataset::default()
+            .name("cpu")
+            .marker(symbols::Marker::Dot)
+            .style(Style::default().fg(Color::Cyan))
+            .data(&serie),
+    ];
 
     let chart = Chart::new(datasets)
         .block(Block::default().title("CPU usage".cyan().bold()).borders(Borders::ALL))
@@ -98,6 +96,33 @@ fn render_cpu(frame: &mut Frame, app: &App, area: Rect) {
                 .style(Style::default().fg(Color::Gray))
                 .labels(vec!["0%".bold(), "50%".bold(), "100%".bold()])
                 .bounds([0., 100.]),
+        );
+
+    frame.render_widget(chart, area);
+}
+
+fn render_memory(frame: &mut Frame, app: &App, area: Rect) {
+    let x_labels = vec![];
+
+    let fserie: Vec<f64> = app.data.memory_usage.clone().into_iter().map(|elm| elm as f64).collect();
+    let serie = smooth_serie(&fserie, 10);
+
+    let datasets = vec![
+        Dataset::default()
+            .name("cpu")
+            .marker(symbols::Marker::Dot)
+            .style(Style::default().fg(Color::Magenta))
+            .data(&serie),
+    ];
+
+    let chart = Chart::new(datasets)
+        .block(Block::default().title("Memory usage".magenta().bold()).borders(Borders::ALL))
+        .x_axis(Axis::default().title("t").style(Style::default().fg(Color::Gray)).labels(x_labels).bounds([0., 100.]))
+        .y_axis(
+            Axis::default()
+                .style(Style::default().fg(Color::Gray))
+                .labels(vec!["0%".bold(), "50%".bold(), "100%".bold()])
+                .bounds([0., app.data.total_memory as f64]),
         );
 
     frame.render_widget(chart, area);

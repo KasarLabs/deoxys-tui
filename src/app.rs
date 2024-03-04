@@ -1,10 +1,9 @@
 use starknet::core::types::SyncStatusType;
 use starknet::providers::jsonrpc::{self, HttpTransport};
 use starknet::providers::{Provider, Url};
-use sysinfo::System;
+use sysinfo::{CpuRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 
 pub struct App {
-    pub name: String,
     pub should_quit: bool,
     pub data: Metrics,
     radar: Radar,
@@ -14,47 +13,60 @@ pub struct Metrics {
     pub block_number: Result<u64, String>,
     pub syncing: Result<SyncStatusType, String>,
     pub cpu_name: String,
-    pub cpu_usage: Vec<Vec<f64>>,
+    pub cpu_usage: Vec<f64>, // BALISE: N2: faire des vecteurs d'option: ratatui le gère de base
+    pub memory_usage: Vec<u64>,
+    pub total_memory: u64,
 }
 
 impl App {
-    pub fn new(name: &str, rpc_endpoint: &str) -> Result<Self, String> {
-        let mut radar = Radar::new(rpc_endpoint)?;
-        let cpu_number = radar.get_cpu_usage().len();
+    pub fn new(process_name: &str, rpc_endpoint: &str) -> Result<Self, String> {
+        let mut radar = Radar::new(rpc_endpoint, process_name)?;
+        let total_memory = radar.get_total_system_memory();
         Ok(Self {
-            name: name.to_string(),
             should_quit: false,
             radar,
             data: Metrics {
                 block_number: Ok(0),
                 syncing: Ok(SyncStatusType::NotSyncing),
                 cpu_name: "N/A".to_string(),
-                cpu_usage: vec![vec![0.; 100]; cpu_number],
+                cpu_usage: vec![0.; 100],   // Le nombre de point doit être réglable: BALISE: N0
+                memory_usage: vec![0; 100], // idem BALISE: N1
+                total_memory,
             },
         })
     }
     pub async fn update_metrics(&mut self) {
+        self.radar.snapshot();
         self.data.syncing = self.radar.get_syncing().await;
-        let usages = self.radar.get_cpu_usage();
-        self.data.cpu_usage.iter_mut().for_each(|elm| elm.rotate_left(1));
-        self.data.cpu_usage.iter_mut().zip(usages).for_each(|(v, val)| {
-            let last = v.last_mut().unwrap();
-            *last = val as f64;
-        });
+
+        self.data.cpu_usage.rotate_left(1);
+        self.data.cpu_usage[99] = self.radar.get_cpu_usage().unwrap_or(0.); //BALISE: N0
+
+        self.data.memory_usage.rotate_left(1);
+        self.data.memory_usage[99] = self.radar.get_memory_usage().unwrap_or(0); //BALISE: N2
     }
 }
 
 struct Radar {
     rpc_client: jsonrpc::JsonRpcClient<HttpTransport>,
     system: System,
+    process_pid: Option<Pid>,
+    process_name: String,
 }
 
 impl Radar {
-    fn new(jsonrpc_endpoint: &str) -> Result<Self, String> {
+    fn new(jsonrpc_endpoint: &str, process_name: &str) -> Result<Self, String> {
         let url = Url::parse(jsonrpc_endpoint).map_err(|_| "Error: Not a Valid URL for RPC endpoint")?;
         let rpc_provider = jsonrpc::JsonRpcClient::new(HttpTransport::new(url));
         let sys = System::new();
-        Ok(Self { rpc_client: rpc_provider, system: sys })
+        let pid = Radar::process_pid(process_name);
+
+        Ok(Self { rpc_client: rpc_provider, system: sys, process_pid: pid, process_name: process_name.to_string() })
+    }
+    fn process_pid(process_name: &str) -> Option<Pid> {
+        let mut sys = System::new();
+        sys.refresh_processes();
+        sys.processes().iter().find(|(_, v)| v.name() == process_name).map(|elm| *elm.0)
     }
     async fn _get_block_number(&self) -> Result<u64, String> {
         self.rpc_client.block_number().await.map_err(|err| format!("Error: {:?}", err))
@@ -62,9 +74,38 @@ impl Radar {
     async fn get_syncing(&self) -> Result<SyncStatusType, String> {
         self.rpc_client.syncing().await.map_err(|err| format!("Error: {:?}", err))
     }
-    fn get_cpu_usage(&mut self) -> Vec<f32> {
-        self.system.refresh_cpu();
-        let usages: Vec<f32> = self.system.cpus().into_iter().map(|elm| elm.cpu_usage()).collect();
-        usages
+    fn snapshot(&mut self) {
+        if let Some(pid) = self.process_pid {
+            self.system.refresh_process_specifics(pid, ProcessRefreshKind::new().with_cpu().with_memory());
+        } else {
+            self.process_pid = Radar::process_pid(&self.process_name);
+            if self.process_pid.is_some() {
+                self.snapshot();
+            }
+        }
+    }
+    fn get_cpu_usage(&mut self) -> Option<f64> {
+        let process = match self.process_pid {
+            Some(pid) => self.system.process(pid),
+            _ => None,
+        };
+        match process {
+            Some(target) => Some(target.cpu_usage() as f64),
+            _ => None,
+        }
+    }
+    fn get_memory_usage(&mut self) -> Option<u64> {
+        let process = match self.process_pid {
+            Some(pid) => self.system.process(pid),
+            _ => None,
+        };
+        match process {
+            Some(target) => Some(target.virtual_memory() as u64),
+            _ => None,
+        }
+    }
+    fn get_total_system_memory(&mut self) -> u64 {
+        self.system.refresh_all(); //BALISE: si appellée plusieurs fois: refresh que les infos memoire
+        self.system.total_memory() as u64
     }
 }
