@@ -71,16 +71,16 @@ fn render_storage(frame: &mut Frame, app: &App, area: Rect) {
         .split(area);
     render_zone(frame, area, "Storage");
     let test = Paragraph::new(format!(
-        "Total size: {} Mo | Available: {} Mo | Used: {} Mo",
-        app.data.disk_size / 1000000,
-        app.data.available_storage / 1000000,
-        app.data.disk_usage / 1000000
+        "Total size: {} Go | Available: {} Go | Used: {} Go",
+        app.data.disk_size / 1000000000,
+        app.data.available_storage / 1000000000,
+        app.data.disk_usage / 1000000000
     ))
     .green();
     frame.render_widget(test, zone[0].inner(&Margin::new(5, 1)));
 
     let gauge = Gauge::default()
-        .ratio(app.data.total_memory as f64 / app.data.disk_usage as f64)
+        .ratio(app.data.disk_usage as f64 / app.data.disk_size as f64)
         .block(Block::default().borders(Borders::ALL).title("Used Storage").title_alignment(Alignment::Center));
     frame.render_widget(gauge, zone[1].inner(&Margin::new(1, 1)));
 }
