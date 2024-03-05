@@ -7,9 +7,9 @@ use ratatui::prelude::{CrosstermBackend, Terminal};
 use crate::app::App;
 use crate::ui;
 
-pub async fn run(rpc_endpoint: &str, process_name: &str) -> Result<()> {
+pub async fn run(rpc_endpoint: &str, process_name: &str, storage_path: &str) -> Result<()> {
     let mut t = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
-    let mut app = App::new(process_name, rpc_endpoint).unwrap();
+    let mut app = App::new(process_name, rpc_endpoint, storage_path).unwrap();
 
     ui::startup()?;
     loop {
@@ -27,7 +27,7 @@ pub async fn run(rpc_endpoint: &str, process_name: &str) -> Result<()> {
 
 async fn update(app: &mut App) -> Result<()> {
     app.update_metrics().await;
-    if event::poll(std::time::Duration::from_millis(50))? {
+    if event::poll(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL)? {
         if let Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Press {
                 match key.code {

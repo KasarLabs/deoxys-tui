@@ -485,6 +485,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "crossterm",
+ "du",
  "ratatui",
  "starknet",
  "sysinfo",
@@ -521,6 +522,15 @@ dependencies = [
  "block-buffer",
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "du"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c933dbfe813a46d603209d43c7e6aa356b2d2d8e3494656979d0d90044f6a84c"
+dependencies = [
+ "getopts",
 ]
 
 [[package]]
@@ -683,6 +693,15 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
+]
+
+[[package]]
+name = "getopts"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14dbbfd5c71d70241ecf9e6f13737f7b5ce823821063188d7e46c41d371eebd5"
+dependencies = [
+ "unicode-width",
 ]
 
 [[package]]

@@ -1,11 +1,11 @@
 use anyhow::Result;
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
-use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
 use ratatui::prelude::Frame;
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::symbols;
-use ratatui::widgets::{Axis, Block, Borders, Chart, Dataset, Paragraph};
+use ratatui::widgets::{Axis, Block, Borders, Chart, Dataset, Gauge, Paragraph};
 use starknet::core::types::SyncStatusType;
 
 use crate::app::App;
@@ -16,8 +16,14 @@ pub fn ui(app: &App, frame: &mut Frame) {
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(frame.size());
 
-    let left = Layout::default().direction(Direction::Vertical).constraints(vec![Constraint::Percentage(33); 3]).split(node0[0]);
-    let right = Layout::default().direction(Direction::Vertical).constraints(vec![Constraint::Percentage(33); 3]).split(node0[1]);
+    let left = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Percentage(33); 3])
+        .split(node0[0]);
+    let right = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Percentage(33); 3])
+        .split(node0[1]);
     render_cpu(frame, app, right[0]);
     render_memory(frame, app, right[1]);
     render_storage(frame, app, right[2]);
@@ -59,7 +65,24 @@ fn render_zone(frame: &mut Frame, area: Rect, title: &str) {
 }
 
 fn render_storage(frame: &mut Frame, app: &App, area: Rect) {
+    let zone = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(area);
     render_zone(frame, area, "Storage");
+    let test = Paragraph::new(format!(
+        "Total size: {} Mo | Available: {} Mo | Used: {} Mo",
+        app.data.disk_size / 1000000,
+        app.data.available_storage / 1000000,
+        app.data.disk_usage / 1000000
+    ))
+    .green();
+    frame.render_widget(test, zone[0].inner(&Margin::new(5, 1)));
+
+    let gauge = Gauge::default()
+        .ratio(app.data.total_memory as f64 / app.data.disk_usage as f64)
+        .block(Block::default().borders(Borders::ALL).title("Used Storage").title_alignment(Alignment::Center));
+    frame.render_widget(gauge, zone[1].inner(&Margin::new(1, 1)));
 }
 
 fn render_l1_logs(frame: &mut Frame, app: &App, area: Rect) {
@@ -123,7 +146,6 @@ fn render_memory(frame: &mut Frame, app: &App, area: Rect) {
                 .labels(vec!["0%".bold(), "50%".bold(), "100%".bold()])
                 .bounds([0., app.data.total_memory as f64]),
         );
-
     frame.render_widget(chart, area);
 }
 
