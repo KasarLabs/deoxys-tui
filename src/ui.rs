@@ -11,26 +11,22 @@ use starknet::core::types::SyncStatusType;
 use crate::app::App;
 
 pub fn ui(app: &App, frame: &mut Frame) {
-    let outer_layout = Layout::default()
+    let node0 = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(frame.size());
-    let inner_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Percentage(25), Constraint::Percentage(75)])
-        .split(outer_layout[0]);
 
-    let sync_area = inner_layout[0];
-    let system_area = inner_layout[1];
-    let network_area = outer_layout[1];
-
-    render_sync(frame, app, sync_area);
-    render_system(frame, app, system_area);
-    render_network(frame, app, network_area);
-    render_memory(frame, app, network_area);
+    let left = Layout::default().direction(Direction::Vertical).constraints(vec![Constraint::Percentage(33); 3]).split(node0[0]);
+    let right = Layout::default().direction(Direction::Vertical).constraints(vec![Constraint::Percentage(33); 3]).split(node0[1]);
+    render_cpu(frame, app, right[0]);
+    render_memory(frame, app, right[1]);
+    render_storage(frame, app, right[2]);
+    render_l1_logs(frame, app, left[0]);
+    render_l2_logs(frame, app, left[1]);
+    render_rpc_playground(frame, app, left[2]);
 }
 
-fn render_sync(frame: &mut Frame, app: &App, area: Rect) {
+fn _render_sync(frame: &mut Frame, app: &App, area: Rect) {
     let text = match app.data.syncing.clone() {
         Ok(SyncStatusType::Syncing(status)) => format!(
             "Starting: {} Current: {} Highest: {}",
@@ -41,22 +37,6 @@ fn render_sync(frame: &mut Frame, app: &App, area: Rect) {
     };
     frame.render_widget(Block::new().title("Syncing").borders(Borders::ALL), area);
     frame.render_widget(Paragraph::new(format!("{}", text.as_str()).light_green()), area.inner(&Margin::new(2, 1)));
-}
-
-fn render_system(frame: &mut Frame, app: &App, area: Rect) {
-    frame.render_widget(Block::new().title("System").borders(Borders::ALL), area);
-
-    let _outer_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(area);
-
-    let cpu_area = area; //_outer_layout[0].inner(&Margin::new(1, 1));
-    render_cpu(frame, app, cpu_area);
-}
-
-fn render_network(frame: &mut Frame, _app: &App, area: Rect) {
-    frame.render_widget(Block::new().title("Network").borders(Borders::ALL), area);
 }
 
 fn smooth_serie(series: &[f64], window_size: usize) -> Vec<(f64, f64)> {
@@ -73,24 +53,43 @@ fn smooth_serie(series: &[f64], window_size: usize) -> Vec<(f64, f64)> {
     serie
 }
 
-fn render_cpu(frame: &mut Frame, app: &App, area: Rect) {
-    frame.render_widget(Block::new().title("CPU").borders(Borders::ALL), area);
+fn render_zone(frame: &mut Frame, area: Rect, title: &str) {
+    let outline = Block::new().borders(Borders::ALL).title(title);
+    frame.render_widget(outline, area);
+}
 
+fn render_storage(frame: &mut Frame, app: &App, area: Rect) {
+    render_zone(frame, area, "Storage");
+}
+
+fn render_l1_logs(frame: &mut Frame, app: &App, area: Rect) {
+    render_zone(frame, area, "L1 logs")
+}
+
+fn render_l2_logs(frame: &mut Frame, app: &App, area: Rect) {
+    render_zone(frame, area, "L2 logs")
+}
+
+fn render_rpc_playground(frame: &mut Frame, app: &App, area: Rect) {
+    render_zone(frame, area, "RPC Playground")
+}
+
+fn render_cpu(frame: &mut Frame, app: &App, area: Rect) {
     let x_labels = vec![];
 
-    let serie = smooth_serie(&app.data.cpu_usage, 10);
+    let serie = smooth_serie(&app.data.cpu_usage, 7);
 
     let datasets = vec![
         Dataset::default()
             .name("cpu")
-            .marker(symbols::Marker::Dot)
+            .marker(symbols::Marker::Braille)
             .style(Style::default().fg(Color::Cyan))
             .data(&serie),
     ];
 
     let chart = Chart::new(datasets)
-        .block(Block::default().title("CPU usage".cyan().bold()).borders(Borders::ALL))
-        .x_axis(Axis::default().title("t").style(Style::default().fg(Color::Gray)).labels(x_labels).bounds([0., 100.]))
+        .block(Block::default().title("CPU".cyan().bold()).borders(Borders::ALL))
+        .x_axis(Axis::default().title("t").style(Style::default().fg(Color::Gray)).labels(x_labels).bounds([0., 100.]))//BALISE: N0
         .y_axis(
             Axis::default()
                 .style(Style::default().fg(Color::Gray))
@@ -105,19 +104,19 @@ fn render_memory(frame: &mut Frame, app: &App, area: Rect) {
     let x_labels = vec![];
 
     let fserie: Vec<f64> = app.data.memory_usage.clone().into_iter().map(|elm| elm as f64).collect();
-    let serie = smooth_serie(&fserie, 10);
+    let serie = smooth_serie(&fserie, 7);
 
     let datasets = vec![
         Dataset::default()
-            .name("cpu")
-            .marker(symbols::Marker::Dot)
+            .name("RAM")
+            .marker(symbols::Marker::Braille)
             .style(Style::default().fg(Color::Magenta))
             .data(&serie),
     ];
 
     let chart = Chart::new(datasets)
-        .block(Block::default().title("Memory usage".magenta().bold()).borders(Borders::ALL))
-        .x_axis(Axis::default().title("t").style(Style::default().fg(Color::Gray)).labels(x_labels).bounds([0., 100.]))
+        .block(Block::default().title("Memory".magenta().bold()).borders(Borders::ALL))
+        .x_axis(Axis::default().title("t").style(Style::default().fg(Color::Gray)).labels(x_labels).bounds([0., 100.]))//BALISE: N0
         .y_axis(
             Axis::default()
                 .style(Style::default().fg(Color::Gray))

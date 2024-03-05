@@ -1,7 +1,7 @@
 use starknet::core::types::SyncStatusType;
 use starknet::providers::jsonrpc::{self, HttpTransport};
 use starknet::providers::{Provider, Url};
-use sysinfo::System;
+use sysinfo::{System, Disks, Disk};
 
 pub struct App {
     pub should_quit: bool,
@@ -16,6 +16,9 @@ pub struct Metrics {
     pub cpu_usage: Vec<f64>, // BALISE: N2: faire des vecteurs d'option: ratatui le gère de base
     pub memory_usage: Vec<u64>,
     pub total_memory: u64,
+    pub disk_name: String,
+    pub disk_size: u64,
+    pub target_disk_usage: u64
 }
 
 impl App {
@@ -32,6 +35,9 @@ impl App {
                 cpu_usage: vec![0.; 100],   // Le nombre de point doit être réglable: BALISE: N0
                 memory_usage: vec![0; 100], // idem BALISE: N1
                 total_memory,
+                disk_name: "N/A".to_string(),
+                disk_size: 0,
+                target_disk_usage: 0,
             },
         })
     }
@@ -51,6 +57,7 @@ struct Radar {
     rpc_client: jsonrpc::JsonRpcClient<HttpTransport>,
     system: System,
     process_name: String,
+    disks: Disks
 }
 
 impl Radar {
@@ -58,8 +65,9 @@ impl Radar {
         let url = Url::parse(jsonrpc_endpoint).map_err(|_| "Error: Not a Valid URL for RPC endpoint")?;
         let rpc_provider = jsonrpc::JsonRpcClient::new(HttpTransport::new(url));
         let sys = System::new();
+        let disks = Disks::new();
 
-        Ok(Self { rpc_client: rpc_provider, system: sys, process_name: process_name.to_string() })
+        Ok(Self { rpc_client: rpc_provider, system: sys, process_name: process_name.to_string(), disks: disks})
     }
     async fn _get_block_number(&self) -> Result<u64, String> {
         self.rpc_client.block_number().await.map_err(|err| format!("Error: {:?}", err))
@@ -69,6 +77,7 @@ impl Radar {
     }
     fn snapshot(&mut self) {
         self.system.refresh_processes();
+        self.disks.refresh();
     }
     fn get_cpu_usage(&mut self) -> Option<f64> {
         match self.system.processes_by_exact_name(&self.process_name).next() {
@@ -85,5 +94,8 @@ impl Radar {
     fn get_total_system_memory(&mut self) -> u64 {
         self.system.refresh_all(); //BALISE: si appellée plusieurs fois: refresh que les infos memoire
         self.system.total_memory() as u64
+    }
+    fn get_available_storage(&mut self) -> u64 {
+        self.disks.list().first().unwrap().total_space()
     }
 }
