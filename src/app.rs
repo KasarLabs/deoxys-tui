@@ -1,6 +1,4 @@
 use std::path::Path;
-
-use du;
 use starknet::core::types::SyncStatusType;
 use starknet::providers::jsonrpc::{self, HttpTransport};
 use starknet::providers::{Provider, Url};

@@ -99,15 +99,15 @@ fn render_storage(frame: &mut Frame, app: &App, area: Rect) { //SALE: découer e
     frame.render_widget(test, zone[0].inner(&Margin::new(1, 1)));
 }
 
-fn render_l1_logs(frame: &mut Frame, app: &App, area: Rect) {
+fn render_l1_logs(frame: &mut Frame, _app: &App, area: Rect) {
     render_zone(frame, area, "L1 logs")
 }
 
-fn render_l2_logs(frame: &mut Frame, app: &App, area: Rect) {
+fn render_l2_logs(frame: &mut Frame, _app: &App, area: Rect) {
     render_zone(frame, area, "L2 logs")
 }
 
-fn render_rpc_playground(frame: &mut Frame, app: &App, area: Rect) {
+fn render_rpc_playground(frame: &mut Frame, _app: &App, area: Rect) {
     render_zone(frame, area, "RPC Playground")
 }
 
