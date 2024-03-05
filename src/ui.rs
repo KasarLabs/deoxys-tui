@@ -67,21 +67,36 @@ fn render_zone(frame: &mut Frame, area: Rect, title: &str) {
 fn render_storage(frame: &mut Frame, app: &App, area: Rect) {
     let zone = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints(vec![Constraint::Percentage(25), Constraint::Percentage(75)])
         .split(area);
     render_zone(frame, area, "Storage");
+
     let test = Paragraph::new(format!(
-        "Total size: {} Go | Available: {} Go | Used: {} Go",
+        "Total: {} Go | Available: {} Go | Used: {} Go",
         app.data.disk_size / 1000000000,
         app.data.available_storage / 1000000000,
         app.data.disk_usage / 1000000000
     ))
-    .green();
-    frame.render_widget(test, zone[0].inner(&Margin::new(5, 1)));
+    .left_aligned();
+
+    frame.render_widget(test, zone[0].inner(&Margin::new(1, 1)));
+
+    let color;
+    let ratio = app.data.cpu_usage.last().unwrap() * 5.;//app.data.disk_usage as f64 / app.data.disk_size as f64;
+    if ratio <= 100./3. {
+        color = Color::Green;
+    }
+    else if ratio <= 200./3. {
+        color = Color::Rgb(255, 128, 0)
+    }
+    else {
+        color = Color::Red;
+    }
 
     let gauge = Gauge::default()
-        .ratio(app.data.disk_usage as f64 / app.data.disk_size as f64)
-        .block(Block::default().borders(Borders::ALL).title("Used Storage").title_alignment(Alignment::Center));
+        .gauge_style(color)
+        .percent(ratio as u16)
+        .block(Block::default().borders(Borders::ALL).title("Used").title_alignment(Alignment::Center));
     frame.render_widget(gauge, zone[1].inner(&Margin::new(1, 1)));
 }
 
