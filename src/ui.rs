@@ -64,12 +64,29 @@ fn render_zone(frame: &mut Frame, area: Rect, title: &str) {
     frame.render_widget(outline, area);
 }
 
-fn render_storage(frame: &mut Frame, app: &App, area: Rect) {
+fn render_storage(frame: &mut Frame, app: &App, area: Rect) { //SALE: découer et simplifier
+    let color;
+    let ratio = app.data.disk_usage as f64 / app.data.disk_size as f64;
+    if ratio <= 1. / 3. {
+        color = Color::Green;
+    } else if ratio <= 2. / 3. {
+        color = Color::Rgb(255, 128, 0)
+    } else {
+        color = Color::Red;
+    }
+
     let zone = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![Constraint::Percentage(25), Constraint::Percentage(75)])
         .split(area);
     render_zone(frame, area, "Storage");
+
+    let gauge = Gauge::default()
+        .gauge_style(color)
+        .bg(Color::Rgb(10, 10, 10))
+        .ratio(ratio)
+        .block(Block::default().borders(Borders::ALL).title("Used").title_alignment(Alignment::Center));
+    frame.render_widget(gauge, zone[1].inner(&Margin::new(1, 1)));
 
     let test = Paragraph::new(format!(
         "Total: {} Go | Available: {} Go | Used: {} Go",
@@ -80,24 +97,6 @@ fn render_storage(frame: &mut Frame, app: &App, area: Rect) {
     .left_aligned();
 
     frame.render_widget(test, zone[0].inner(&Margin::new(1, 1)));
-
-    let color;
-    let ratio = app.data.disk_usage as f64 / app.data.disk_size as f64;
-    if ratio <= 100./3. {
-        color = Color::Green;
-    }
-    else if ratio <= 200./3. {
-        color = Color::Rgb(255, 128, 0)
-    }
-    else {
-        color = Color::Red;
-    }
-
-    let gauge = Gauge::default()
-        .gauge_style(color)
-        .percent(ratio as u16)
-        .block(Block::default().borders(Borders::ALL).title("Used").title_alignment(Alignment::Center));
-    frame.render_widget(gauge, zone[1].inner(&Margin::new(1, 1)));
 }
 
 fn render_l1_logs(frame: &mut Frame, app: &App, area: Rect) {
