@@ -82,7 +82,7 @@ fn render_storage(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(test, zone[0].inner(&Margin::new(1, 1)));
 
     let color;
-    let ratio = app.data.cpu_usage.last().unwrap() * 5.;//app.data.disk_usage as f64 / app.data.disk_size as f64;
+    let ratio = app.data.disk_usage as f64 / app.data.disk_size as f64;
     if ratio <= 100./3. {
         color = Color::Green;
     }
