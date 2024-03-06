@@ -11,6 +11,6 @@ crossterm = "0.27.0"
 du = "0.1.1"
 ratatui = "0.26.1"
 starknet = "0.9.0"
-sysinfo = "0.30.5"
+sysinfo = "0.30.6"
 tokio = { version = "1.36.0", features = ["full"] }
 

@@ -1,4 +1,5 @@
 use std::path::Path;
+
 use starknet::core::types::SyncStatusType;
 use starknet::providers::jsonrpc::{self, HttpTransport};
 use starknet::providers::{Provider, Url};
@@ -66,27 +67,29 @@ struct Radar {
     process_name: String,
     disks: Disks,
     storage_directory: String,
+    cpus_number: u32,
 }
 
 impl Radar {
     fn new(jsonrpc_endpoint: &str, process_name: &str, target_storage_directory: &str) -> Result<Self, String> {
         let url = Url::parse(jsonrpc_endpoint).map_err(|_| "Error: Not a Valid URL for RPC endpoint")?;
         let rpc_provider = jsonrpc::JsonRpcClient::new(HttpTransport::new(url));
-        let sys = System::new();
+        let sys = System::new_all();
         let disks = Disks::new();
 
         Ok(Self {
             rpc_client: rpc_provider,
-            system: sys,
             process_name: process_name.to_string(),
             disks,
             storage_directory: target_storage_directory.to_string(),
+            cpus_number: sys.cpus().len() as u32,
+            system: sys,
         })
     }
     async fn _get_block_number(&self) -> Result<u64, String> {
         self.rpc_client.block_number().await.map_err(|err| format!("Error: {:?}", err))
     }
-    async fn _get_syncing(&self) -> Result<SyncStatusType, String> {
+    async fn get_syncing(&self) -> Result<SyncStatusType, String> {
         self.rpc_client.syncing().await.map_err(|err| format!("Error: {:?}", err))
     }
     fn snapshot(&mut self) {
@@ -95,7 +98,7 @@ impl Radar {
     }
     fn get_cpu_usage(&mut self) -> Option<f64> {
         match self.system.processes_by_exact_name(&self.process_name).next() {
-            Some(target) => Some(target.cpu_usage() as f64 / self.system.cpus().len() as f64),
+            Some(target) => Some(target.cpu_usage() as f64 / self.cpus_number as f64),
             _ => None,
         }
     }
@@ -106,7 +109,7 @@ impl Radar {
         }
     }
     fn get_total_system_memory(&mut self) -> u64 {
-        self.system.refresh_all(); //BALISE: si appellée plusieurs fois: refresh que les infos memoire
+        self.system.refresh_memory();
         self.system.total_memory() as u64
     }
     fn get_total_storage(&mut self) -> Option<u64> {
@@ -114,7 +117,7 @@ impl Radar {
     }
     fn get_storage_usage(&mut self) -> u64 {
         let path = Path::new(&self.storage_directory);
-        du::get_size(path).unwrap()
+        du::get_size(path).unwrap_or(0)
     }
     fn get_available_storage(&mut self) -> Option<u64> {
         match self.disks.list().first() {
