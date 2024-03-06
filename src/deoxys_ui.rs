@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{Ok, Result};
 use crossterm::event::Event::Key;
 use crossterm::event::KeyCode::Char;
@@ -27,7 +29,7 @@ pub async fn run(rpc_endpoint: &str, process_name: &str, storage_path: &str) -> 
 
 async fn update(app: &mut App) -> Result<()> {
     app.update_metrics().await;
-    if event::poll(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL)? {
+    if event::poll(Duration::from_millis(50))? {
         if let Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Press {
                 match key.code {

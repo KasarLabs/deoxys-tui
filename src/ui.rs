@@ -1,13 +1,14 @@
 use std::cmp::min;
-
 use anyhow::Result;
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
+use humansize::{format_size, BINARY};
+use ratatui::layout::{Constraint, Direction, Layout, Margin, Offset, Rect};
 use ratatui::prelude::Frame;
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::symbols;
-use ratatui::widgets::{Axis, Block, Borders, Chart, Dataset, Gauge, LineGauge, Paragraph};
+use ratatui::text::Line;
+use ratatui::widgets::{Axis, Block, Borders, Chart, Dataset, Gauge, Paragraph};
 use starknet::core::types::SyncStatusType;
 
 use crate::app::App;
@@ -18,23 +19,29 @@ pub fn ui(app: &App, frame: &mut Frame) {
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(frame.size());
 
+    render_zone(frame, node0[1], "System");
+
     let left = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Percentage(33); 3])
+        .constraints(vec![Constraint::Percentage(50); 2])
         .split(node0[0]);
     let right = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![Constraint::Percentage(33); 3])
-        .split(node0[1]);
+        .split(node0[1].inner(&Margin::new(2, 1)));
 
     let cpu_area = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![Constraint::Percentage(90), Constraint::Percentage(10)])
         .split(right[0]);
     let memory_area = Layout::default()
-    .direction(Direction::Vertical)
-    .constraints(vec![Constraint::Percentage(90), Constraint::Percentage(10)])
-    .split(right[1]);
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Percentage(90), Constraint::Percentage(10)])
+        .split(right[1]);
+    let storage_area = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(right[2].inner(&Margin::new(1, 1)));
 
     render_cpu_gauge(frame, app, cpu_area[1].inner(&Margin::new(1, 0)));
     render_cpu_graph(frame, app, cpu_area[0]);
@@ -42,11 +49,12 @@ pub fn ui(app: &App, frame: &mut Frame) {
     render_memory_gauge(frame, app, memory_area[1].inner(&Margin::new(1, 0)));
     render_memory_graph(frame, app, memory_area[0]);
 
-    render_storage_gauge(frame, app, right[2]);
+    render_zone(frame, right[2], "Storage");
+    render_storage_data(frame, app, storage_area[0]);
+    render_storage_gauge(frame, app, storage_area[1]);
 
     render_l1_logs(frame, app, left[0]);
     render_l2_logs(frame, app, left[1]);
-    render_rpc_playground(frame, app, left[2]);
 }
 
 fn _render_sync(frame: &mut Frame, app: &App, area: Rect) {
@@ -55,11 +63,11 @@ fn _render_sync(frame: &mut Frame, app: &App, area: Rect) {
             "Starting: {} Current: {} Highest: {}",
             status.starting_block_num, status.current_block_num, status.highest_block_num
         ),
-        Ok(SyncStatusType::NotSyncing) => format!("Not Syncing"),
+        Ok(SyncStatusType::NotSyncing) => "Not Syncing".to_string(),
         Err(err) => err.clone(),
     };
     frame.render_widget(Block::new().title("Syncing").borders(Borders::ALL), area);
-    frame.render_widget(Paragraph::new(format!("{}", text.as_str()).light_green()), area.inner(&Margin::new(2, 1)));
+    frame.render_widget(Paragraph::new(text.as_str()).light_green(), area.inner(&Margin::new(2, 1)));
 }
 
 fn smooth_serie(series: &[f64], window_size: usize) -> Vec<(f64, f64)> {
@@ -72,7 +80,7 @@ fn smooth_serie(series: &[f64], window_size: usize) -> Vec<(f64, f64)> {
         smoothed_series.push(window_average);
     }
     let x: Vec<f64> = (0..=100).map(|x| x as f64).collect();
-    let serie: Vec<(f64, f64)> = x.into_iter().zip(smoothed_series.into_iter()).collect();
+    let serie: Vec<(f64, f64)> = x.into_iter().zip(smoothed_series).collect();
     serie
 }
 
@@ -83,19 +91,19 @@ fn render_zone(frame: &mut Frame, area: Rect, title: &str) {
 
 fn render_storage_gauge(frame: &mut Frame, app: &App, area: Rect) {
     let ratio = app.data.disk_usage as f64 / app.data.disk_size as f64;
-    render_zone(frame, area, "Storage");
-    render_gauge(frame, area.inner(&Margin::new(1, 1)), (ratio * 100 as f64) as u16, true);
+    render_zone(frame, area, "Used");
+    render_gauge(frame, area.inner(&Margin::new(1, 1)), (ratio * 100.) as u16, true);
 }
 
 fn render_l1_logs(frame: &mut Frame, _app: &App, area: Rect) {
     render_zone(frame, area, "L1 logs")
 }
 
-fn render_l2_logs(frame: &mut Frame, app: &App, area: Rect) {
+fn render_l2_logs(frame: &mut Frame, _app: &App, area: Rect) {
     render_zone(frame, area, "L2 logs");
 }
 
-fn render_rpc_playground(frame: &mut Frame, _app: &App, area: Rect) {
+fn _render_rpc_playground(frame: &mut Frame, _app: &App, area: Rect) {
     render_zone(frame, area, "RPC Playground")
 }
 
@@ -115,7 +123,7 @@ fn render_cpu_graph(frame: &mut Frame, app: &App, area: Rect) {
             Axis::default()
                 .style(Style::default().fg(Color::Gray))
                 .labels(vec!["0%".bold(), "50%".bold(), "100%".bold()])
-                .bounds([0., 100.]),
+                .bounds([0., 101.]),
         );
     frame.render_widget(chart, area);
 }
@@ -126,7 +134,12 @@ fn render_cpu_gauge(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_memory_gauge(frame: &mut Frame, app: &App, area: Rect) {
-    render_gauge(frame, area, ((*app.data.memory_usage.last().unwrap() as f64 / app.data.total_memory as f64) * 100.) as u16, true);
+    render_gauge(
+        frame,
+        area,
+        ((*app.data.memory_usage.last().unwrap() as f64 / app.data.total_memory as f64) * 100.) as u16,
+        true,
+    );
 }
 
 #[inline]
@@ -141,16 +154,10 @@ fn render_gauge(frame: &mut Frame, area: Rect, percent: u16, alert_mode: bool) {
         } else {
             color = Color::Red;
         }
-    }
-    else {
+    } else {
         color = Color::Green
     }
-    let gauge = Gauge::default()
-        .gauge_style(color)
-        .bg(Color::Rgb(10, 10, 10))
-        .percent(min(percent, 100));
-        //.ratio(percent as f64 / 100.);
-        //.block(Block::default().borders(Borders::ALL).title("Used").title_alignment(Alignment::Center));
+    let gauge = Gauge::default().gauge_style(color).bg(Color::Rgb(20, 20, 20)).percent(min(percent, 100));
     frame.render_widget(gauge, area);
 }
 
@@ -174,6 +181,22 @@ fn render_memory_graph(frame: &mut Frame, app: &App, area: Rect) {
                 .bounds([0., app.data.total_memory as f64]),
         );
     frame.render_widget(chart, area);
+}
+
+fn render_storage_data(frame: &mut Frame, app: &App, area: Rect) {
+    let total_space =
+        Line::raw(format!("Total Disk Space: {}", format_size(app.data.disk_size, BINARY))).style(Color::Green);
+    let used_space =
+        Line::raw(format!("Node Disk Usage: {}", format_size(app.data.disk_usage, BINARY))).style(Color::Green);
+    let available_space =
+        Line::raw(format!("Available Space: {}", format_size(app.data.available_storage, BINARY))).style(Color::Green);
+
+    let zones =
+        Layout::default().direction(Direction::Vertical).constraints(vec![Constraint::Percentage(33); 3]).split(area);
+
+    frame.render_widget(total_space, zones[0]);
+    frame.render_widget(used_space, zones[0].offset(Offset { x: 0, y: 1 }));
+    frame.render_widget(available_space, zones[0].offset(Offset { x: 0, y: 2 }));
 }
 
 pub fn startup() -> Result<()> {

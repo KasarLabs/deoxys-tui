@@ -1,9 +1,8 @@
 use std::path::Path;
-
 use starknet::core::types::SyncStatusType;
 use starknet::providers::jsonrpc::{self, HttpTransport};
 use starknet::providers::{Provider, Url};
-use sysinfo::{Disks, System};
+use sysinfo::{Disks, ProcessRefreshKind, System};
 
 pub struct App {
     pub should_quit: bool,
@@ -62,7 +61,7 @@ impl App {
 }
 
 struct Radar {
-    rpc_client: jsonrpc::JsonRpcClient<HttpTransport>,
+    _rpc_client: jsonrpc::JsonRpcClient<HttpTransport>,
     system: System,
     process_name: String,
     disks: Disks,
@@ -78,7 +77,7 @@ impl Radar {
         let disks = Disks::new();
 
         Ok(Self {
-            rpc_client: rpc_provider,
+            _rpc_client: rpc_provider,
             process_name: process_name.to_string(),
             disks,
             storage_directory: target_storage_directory.to_string(),
@@ -87,42 +86,35 @@ impl Radar {
         })
     }
     async fn _get_block_number(&self) -> Result<u64, String> {
-        self.rpc_client.block_number().await.map_err(|err| format!("Error: {:?}", err))
+        self._rpc_client.block_number().await.map_err(|err| format!("Error: {:?}", err))
     }
-    async fn get_syncing(&self) -> Result<SyncStatusType, String> {
-        self.rpc_client.syncing().await.map_err(|err| format!("Error: {:?}", err))
+    async fn _get_syncing(&self) -> Result<SyncStatusType, String> {
+        self._rpc_client.syncing().await.map_err(|err| format!("Error: {:?}", err))
     }
     fn snapshot(&mut self) {
-        self.system.refresh_processes();
+        self.system.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu().with_memory());
+        std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+        self.system.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu().with_memory());
         self.disks.refresh_list();
     }
     fn get_cpu_usage(&mut self) -> Option<f64> {
-        match self.system.processes_by_exact_name(&self.process_name).next() {
-            Some(target) => Some(target.cpu_usage() as f64 / self.cpus_number as f64),
-            _ => None,
-        }
+        self.system.processes_by_exact_name(&self.process_name).next().map(|target| target.cpu_usage() as f64 / self.cpus_number as f64)
     }
     fn get_memory_usage(&mut self) -> Option<u64> {
-        match self.system.processes_by_exact_name(&self.process_name).next() {
-            Some(target) => Some(target.memory()),
-            _ => None,
-        }
+        self.system.processes_by_exact_name(&self.process_name).next().map(|target| target.memory())
     }
     fn get_total_system_memory(&mut self) -> u64 {
         self.system.refresh_memory();
-        self.system.total_memory() as u64
+        self.system.total_memory()
     }
     fn get_total_storage(&mut self) -> Option<u64> {
-        if let Some(disk) = self.disks.list().first() { Some(disk.total_space()) } else { None }
+        self.disks.list().first().map(|disk| disk.total_space())
     }
     fn get_storage_usage(&mut self) -> u64 {
         let path = Path::new(&self.storage_directory);
         du::get_size(path).unwrap_or(0)
     }
     fn get_available_storage(&mut self) -> Option<u64> {
-        match self.disks.list().first() {
-            Some(elm) => Some(elm.available_space()),
-            _ => None,
-        }
+        self.disks.list().first().map(|elm| elm.available_space())
     }
 }
