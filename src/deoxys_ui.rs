@@ -5,28 +5,30 @@ use crossterm::event::Event::Key;
 use crossterm::event::KeyCode::Char;
 use crossterm::event::{self};
 use ratatui::prelude::{CrosstermBackend, Terminal};
+use tokio::sync::mpsc;
 
 use crate::app::App;
-use crate::ui;
+use crate::ui::render;
 
-pub async fn run(rpc_endpoint: &str, process_name: &str, storage_path: &str) -> Result<()> {
-    let mut t = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
-    let mut app = App::new(process_name, rpc_endpoint, storage_path).unwrap();
+pub async fn run(storage_path: &str, logs_rx: mpsc::Receiver<String>) -> Result<()> {
+    let mut t = Terminal::new(CrosstermBackend::new(std::io::stdout()))?;
+    let mut app = App::new(storage_path, logs_rx).unwrap();
 
-    ui::startup()?;
+    render::startup()?;
     loop {
         update(&mut app).await?;
         t.draw(|f| {
-            ui::ui(&app, f);
+            render::ui(&app, f);
         })?;
         if app.should_quit {
             break;
         }
     }
-    ui::shutdown()?;
+    render::shutdown()?;
     Ok(())
 }
 
+#[allow(clippy::single_match)]
 async fn update(app: &mut App) -> Result<()> {
     app.update_metrics().await;
     if event::poll(Duration::from_millis(50))? {
