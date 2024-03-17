@@ -17,5 +17,5 @@ sysinfo = "0.30.7"
 tokio = { version = "1.36.0", features = ["full"] }
 
 [lib]
-name = "deoxys_tui"
+name = "deoxys-tui"
 path = "src/lib.rs"
